@@ -1,4 +1,3 @@
-#FROM nvcr.io/nvidia/pytorch:24.09-py3
 FROM pytorch/pytorch:2.4.1-cuda11.8-cudnn9-devel
 
 USER root
