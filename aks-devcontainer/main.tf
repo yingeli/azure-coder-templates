@@ -304,10 +304,12 @@ resource "kubernetes_deployment" "main" {
           }
 
           resources {
-            requests = {
+            requests = merge ({
               "cpu"    = "250m"
               "memory" = "512Mi"
-            }
+            }, data.coder_parameter.nvidia_gpu.value > 0 ? {
+              "nvidia.com/gpu" = "${data.coder_parameter.nvidia_gpu.value}"
+            } : {})
             limits = merge ({
               "cpu"    = "${data.coder_parameter.cpu.value}"
               "memory" = "${data.coder_parameter.memory.value}Gi"
@@ -336,7 +338,7 @@ resource "kubernetes_deployment" "main" {
             key      = "sku"
             operator = "Equal"
             value    = "gpu"
-            effect   = "NoExecute"
+            effect   = "NoSchedule"
           }
         }
 
@@ -346,7 +348,7 @@ resource "kubernetes_deployment" "main" {
             key      = "kubernetes.azure.com/scalesetpriority"
             operator = "Equal"
             value    = "spot"
-            effect   = "NoExecute"
+            effect   = "NoSchedule"
           }
         }
 

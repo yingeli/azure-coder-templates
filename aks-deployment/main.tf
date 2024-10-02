@@ -123,7 +123,7 @@ data "coder_parameter" "gpu_image" {
   display_name = "Container image with Nvidia GPU support"
   description  = "The container image with Nvidia GPU support"
   type         = "string"
-  default      = "yingeli/coder-cuda:latest"
+  default      = "yingeli/coder-pytorch:latest"
   mutable      = true
 }
 
