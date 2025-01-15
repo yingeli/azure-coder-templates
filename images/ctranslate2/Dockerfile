@@ -1,4 +1,4 @@
-FROM nvcr.io/nvidia/pytorch:24.11-py3
+FROM nvidia/cuda:12.6.3-cudnn-devel-ubuntu22.04
 
 USER root
 ENV DEBIAN_FRONTEND=noninteractive

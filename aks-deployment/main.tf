@@ -34,65 +34,46 @@ variable "namespace" {
 data "coder_parameter" "cpu" {
   name         = "cpu"
   display_name = "CPU"
-  description  = "The number of CPU cores"
+  description  = "CPU limit (cores)."
+  type         = "number"
   default      = "2"
-  icon         = "/icon/memory.svg"
+  icon         = "/emojis/1f5a5.png"
   mutable      = true
-  option {
-    name  = "2 Cores"
-    value = "2"
+  validation {
+    min = 1
+    max = 99999
   }
-  option {
-    name  = "4 Cores"
-    value = "4"
-  }
-  option {
-    name  = "6 Cores"
-    value = "6"
-  }
-  option {
-    name  = "8 Cores"
-    value = "8"
-  }
+  order = 1
 }
 
 data "coder_parameter" "memory" {
   name         = "memory"
   display_name = "Memory"
-  description  = "The amount of memory in GB"
+  description  = "Memory limit (GiB)."
+  type         = "number"
   default      = "2"
   icon         = "/icon/memory.svg"
   mutable      = true
-  option {
-    name  = "2 GB"
-    value = "2"
+  validation {
+    min = 1
+    max = 99999
   }
-  option {
-    name  = "4 GB"
-    value = "4"
-  }
-  option {
-    name  = "6 GB"
-    value = "6"
-  }
-  option {
-    name  = "8 GB"
-    value = "8"
-  }
+  order = 2
 }
 
 data "coder_parameter" "home_disk_size" {
   name         = "home_disk_size"
   display_name = "Home disk size"
   description  = "The size of the home disk in GB"
-  default      = "10"
   type         = "number"
+  default      = "10"
   icon         = "/emojis/1f4be.png"
   mutable      = false
   validation {
     min = 1
     max = 99999
   }
+  order = 3
 }
 
 data "coder_parameter" "nvidia_gpu" {
@@ -101,12 +82,34 @@ data "coder_parameter" "nvidia_gpu" {
   description  = "The number of Nvidia GPUs"
   type         = "number"
   default      = "0"
-  icon         = "/icon/memory.svg"
   mutable      = true
   validation {
     min = 0
     max = 99999
-  }  
+  }
+  order = 4
+}
+
+data "coder_parameter" "nvidia_gpu_name" {
+  name         = "nvidia_gpu_name"
+  display_name = "Nvidia GPU name"
+  description  = "The name of Nvidia GPU"
+  default      = "Any"
+  icon         = "/icon/memory.svg"
+  mutable      = true
+  option {
+    name  = "Any"
+    value = "Any"
+  }
+  option {
+    name  = "T4"
+    value = "T4"
+  }
+  option {
+    name  = "A100"
+    value = "A100"
+  }
+  order = 5
 }
 
 data "coder_parameter" "allow_spot" {
@@ -116,15 +119,17 @@ data "coder_parameter" "allow_spot" {
   type         = "bool"
   default      = false
   mutable      = true
+  order = 6
 }
 
-data "coder_parameter" "gpu_image" {
-  name         = "gpu_image"
-  display_name = "Container image with Nvidia GPU support"
-  description  = "The container image with Nvidia GPU support"
+data "coder_parameter" "container_image" {
+  name         = "container_image"
+  display_name = "Container image"
+  description  = "The container image"
   type         = "string"
-  default      = "yingeli/coder-pytorch:latest"
+  default      = "codercom/enterprise-base:ubuntu"
   mutable      = true
+  order = 7
 }
 
 provider "kubernetes" {
@@ -225,11 +230,11 @@ resource "coder_app" "code-server" {
 
 resource "kubernetes_persistent_volume_claim" "home" {
   metadata {
-    name      = "coder-${lower(data.coder_workspace_owner.me.name)}-${lower(data.coder_workspace.me.name)}-home"
+    name      = "coder-${data.coder_workspace.me.id}-home"
     namespace = var.namespace
     labels = {
       "app.kubernetes.io/name"     = "coder-pvc"
-      "app.kubernetes.io/instance" = "coder-pvc-${lower(data.coder_workspace_owner.me.name)}-${lower(data.coder_workspace.me.name)}"
+      "app.kubernetes.io/instance" = "coder-pvc-${data.coder_workspace.me.id}"
       "app.kubernetes.io/part-of"  = "coder"
       //Coder-specific labels.
       "com.coder.resource"       = "true"
@@ -250,6 +255,7 @@ resource "kubernetes_persistent_volume_claim" "home" {
         storage = "${data.coder_parameter.home_disk_size.value}Gi"
       }
     }
+    // storage_class_name = "managed-csi-zrs"
   }
 }
 
@@ -260,11 +266,11 @@ resource "kubernetes_deployment" "main" {
   ]
   wait_for_rollout = false
   metadata {
-    name      = "coder-${lower(data.coder_workspace_owner.me.name)}-${lower(data.coder_workspace.me.name)}"
+    name      = "coder-${data.coder_workspace.me.id}"
     namespace = var.namespace
     labels = {
       "app.kubernetes.io/name"     = "coder-workspace"
-      "app.kubernetes.io/instance" = "coder-workspace-${lower(data.coder_workspace_owner.me.name)}-${lower(data.coder_workspace.me.name)}"
+      "app.kubernetes.io/instance" = "coder-workspace-${data.coder_workspace.me.id}"
       "app.kubernetes.io/part-of"  = "coder"
       "com.coder.resource"         = "true"
       "com.coder.workspace.id"     = data.coder_workspace.me.id
@@ -281,7 +287,14 @@ resource "kubernetes_deployment" "main" {
     replicas = 1
     selector {
       match_labels = {
-        "app.kubernetes.io/name" = "coder-workspace"
+        "app.kubernetes.io/name"     = "coder-workspace"
+        "app.kubernetes.io/instance" = "coder-workspace-${data.coder_workspace.me.id}"
+        "app.kubernetes.io/part-of"  = "coder"
+        "com.coder.resource"         = "true"
+        "com.coder.workspace.id"     = data.coder_workspace.me.id
+        "com.coder.workspace.name"   = data.coder_workspace.me.name
+        "com.coder.user.id"          = data.coder_workspace_owner.me.id
+        "com.coder.user.username"    = data.coder_workspace_owner.me.name
       }
     }
     strategy {
@@ -291,7 +304,14 @@ resource "kubernetes_deployment" "main" {
     template {
       metadata {
         labels = {
-          "app.kubernetes.io/name" = "coder-workspace"
+          "app.kubernetes.io/name"     = "coder-workspace"
+          "app.kubernetes.io/instance" = "coder-workspace-${data.coder_workspace.me.id}"
+          "app.kubernetes.io/part-of"  = "coder"
+          "com.coder.resource"         = "true"
+          "com.coder.workspace.id"     = data.coder_workspace.me.id
+          "com.coder.workspace.name"   = data.coder_workspace.me.name
+          "com.coder.user.id"          = data.coder_workspace_owner.me.id
+          "com.coder.user.username"    = data.coder_workspace_owner.me.name
         }
       }
       spec {
@@ -302,7 +322,7 @@ resource "kubernetes_deployment" "main" {
 
         container {
           name              = "dev"
-          image             = data.coder_parameter.nvidia_gpu.value > 0 ? data.coder_parameter.gpu_image.value : "codercom/enterprise-base:ubuntu"
+          image             = "codercom/enterprise-base:ubuntu"
           image_pull_policy = "Always"
           command           = ["sh", "-c", coder_agent.main.init_script]
           security_context {
@@ -313,12 +333,10 @@ resource "kubernetes_deployment" "main" {
             value = coder_agent.main.token
           }
           resources {
-            requests = merge ({
+            requests = {
               "cpu"    = "250m"
               "memory" = "512Mi"
-            }, data.coder_parameter.nvidia_gpu.value > 0 ? {
-              "nvidia.com/gpu" = "${data.coder_parameter.nvidia_gpu.value}"
-            } : {})
+            }
             limits = merge ({
               "cpu"    = "${data.coder_parameter.cpu.value}"
               "memory" = "${data.coder_parameter.memory.value}Gi"
@@ -374,6 +392,20 @@ resource "kubernetes_deployment" "main" {
                     key      = "app.kubernetes.io/name"
                     operator = "In"
                     values   = ["coder-workspace"]
+                  }
+                }
+              }
+            }
+          }
+          dynamic "node_affinity" {
+            for_each = data.coder_parameter.nvidia_gpu_name.value == "Any" ? [] : [1]
+            content {
+              required_during_scheduling_ignored_during_execution {
+                node_selector_term {
+                  match_expressions {
+                    key = "karpenter.azure.com/sku-gpu-name"
+                    operator = "In"
+                    values = ["${data.coder_parameter.nvidia_gpu_name.value}"]
                   }
                 }
               }

@@ -1,5 +1,5 @@
-FROM nvcr.io/nvidia/pytorch:24.11-py3
-
+FROM ygsea.azurecr.io/nvidia/trtllm:0.16.0-75
+  
 USER root
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \

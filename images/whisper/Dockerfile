@@ -1,4 +1,4 @@
-FROM pytorch/pytorch:2.3.1-cuda12.1-cudnn8-devel
+FROM pytorch/pytorch:2.4.1-cuda12.1-cudnn9-devel
 
 USER root
 ENV DEBIAN_FRONTEND=noninteractive
@@ -11,6 +11,8 @@ RUN apt-get update && \
     jq \
     sudo \
     ffmpeg \
+    libcudnn8 \
+    libcudnn8-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Make typing unicode characters in the terminal work.

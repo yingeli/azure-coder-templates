@@ -1,5 +1,5 @@
-FROM nvcr.io/nvidia/pytorch:24.11-py3
-
+FROM nvcr.io/nvidia/tritonserver:24.11-trtllm-python-py3
+  
 USER root
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
